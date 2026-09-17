@@ -190,7 +190,29 @@ accuracy, which is the same trade as quantizing. Standard model first.
 
 ## 10. Open
 
-**Answered: three.** Twelve station kernels, two generators cover 90%, three
+**Answered, and it is two numbers that do not compose.** **[owner]**
+
+*Across the twelve blocks:* three. Twelve station kernels, two generators cover
+90%, three cover 99.2%, four exact. Stations 5-8 are nearly the same kernel
+(cosine +.98, +.97). The delays are shared.
+
+*Within one matrix:* 220-410, against a random control of 614 — a third to
+two-thirds of available capacity. Participation ratio 216-407, spectral entropy
+394-544, rank at 90% 399-530, three readings in the same band. The
+Marchenko-Pastur fit lands at 800-920 superposed terms, **above** the 768
+dimensions: overcomplete superposition, more bound pairs stored than there are
+dimensions to store them in. That is the HRR capacity regime.
+
+So a projection is not a handful of physical objects. The weights are packed
+past full and do not collapse. **Streaming is the architecture**, and the floor
+for a single stream is $1,882/tok/s (KIMI_UNITS), with better emitters — not
+stationary weights — the place where cost comes out.
+
+The two measurements above answer different questions and should not be
+multiplied together; the first is inter-block kernel redundancy, the second is
+superposed rank-1 terms in one matrix.
+
+(superseded) **Three.** Twelve station kernels, two generators cover 90%, three
 cover 99.2%, four are exact. Stations 5 through 8 are nearly the same kernel
 (pairwise cosine +.98, +.97). So the delays are four lengths of glass shared
 across all twelve blocks, not 144. **[owner]**
