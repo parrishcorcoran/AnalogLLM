@@ -48,6 +48,14 @@ the Fresco Logic FL2000 chip, driven as general-purpose DACs.
   12 bit, 1.25 GS/s, 25 Mpts -- better than an RTL-SDR (8 bit, 2.4 MS/s) or a
   HackRF (8 bit, 20 MS/s), and already owned.
 - open source, working code: [osmocom/osmo-fl2k](https://github.com/osmocom/osmo-fl2k)
+  — **software is current** (updated April 2026, in Debian sid and openSUSE,
+  Windows binaries on downloads.osmocom.org)
+- **hardware availability is UNVERIFIED.** Every "$5 and it works" claim traces
+  to the 2018 announcement. Searching in 2026 turns up no discontinuation
+  notice and no recent confirmation either. USB-VGA is a dying category and
+  FL2000 is an old chip, so check an actual listing before planning around it —
+  and check the *chip*, not the price. A cheap 2026 adapter could easily be a
+  different controller at the same price.
 - [FL2K_2 fork](https://github.com/BM45/fl2k_2_rgb) drives all three channels;
   the original uses only red
 - **the blanking-interval problem is already solved** — it picks timings that
