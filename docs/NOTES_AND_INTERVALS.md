@@ -190,8 +190,18 @@ accuracy, which is the same trade as quantizing. Standard model first.
 
 ## 10. Open
 
-Precision is settled (section 2). Structure is not, and the question has a
-number attached to it now.
+**Answered: three.** Twelve station kernels, two generators cover 90%, three
+cover 99.2%, four are exact. Stations 5 through 8 are nearly the same kernel
+(pairwise cosine +.98, +.97). So the delays are four lengths of glass shared
+across all twelve blocks, not 144. **[owner]**
+
+This was measured as: one kernel fitted per station, then how many of the twelve
+are independent. That is inter-block redundancy — a related but not identical
+quantity to `rank(M)` per projection in `experiments/weight_structure.py`, which
+asks how many mask-and-delay pairs build a single matrix. Both being small is
+what a build needs; only the first is measured.
+
+Precision is settled (section 2). The rest:
 
 **How many generators?** `W = sum_k D_k S^k` is exact with d terms. Stack the
 masks as `M[k,i] = W[i, i-k]` and `rank(M) = r` means exactly
