@@ -1,0 +1,97 @@
+# Fundamentals
+
+The concepts, in the owner's terms. Minimum needed so they don't have to be
+re-explained every conversation. Short on purpose.
+
+## 1. Abelian
+
+The whole network is addition on a cyclic group. Order does not matter.
+
+That is why pulses can arrive in any order and the sum is still correct, and it
+is why the sum is legal in a physical medium at all. **All we are is adds.**
+
+## 2. The number: 0–4096 plus a lap counter
+
+Every weight and every neuron value is a number between 0 and 4096, plus a lap
+counter. 4096 positions on a circle.
+
+The lap counter is amplitude. It matters, but not very much.
+
+## 3. Complementary pairs
+
+Negatives are complements, not a separate sign.
+
+```
+-1000 = 3096
+```
+
+No sign rail. No two passes. Subtraction is addition going the other way round
+the circle.
+
+## 4. Weights are thresholds, and they never move
+
+A weight is a level sitting still. The clock's ramp crosses it and that makes the
+pulse. Nothing is fetched.
+
+Weights are set once and are **set forever** unless you train. Run 590k tokens,
+same weights.
+
+## 5. Depth collapses
+
+Run the flow model and the 12 layers collapse into one. Depth is not a schedule,
+it is where the pipes go.
+
+## 6. Low weights matter
+
+Low weights matter a lot. They are harmonic undertones. Non-resonant ones dampen,
+important ones amplify.
+
+## 7. The LM head is the exception
+
+Everything is 0–4096 plus lap. The LM head is the only part that doesn't convert
+to 0–4096 — it needs a resolution of 4096 × 4.
+
+## 8. Encoding is free
+
+Pulse width, odometer, radix, binary — doesn't matter. Digital pulse widths are
+binary, and edges over cycles is one way to store data.
+
+The code is a choice about how to spend time. It is not the machine.
+
+## 9. Two alphabets
+
+**Digital:** 0, -1, -0, 1.
+
+**Analog:** frequency, pulse width, amplitude, duration, harmonics, ramp speed.
+
+Analog also gives potential modes in wire, and potential cancellation in wire.
+
+## 10. The harmonic model
+
+The AI model just digitally encodes a digital medium for a harmonic system.
+
+The first layers are a note or chord being played. Attention adds resonant nodes
+— the meanings that are related. A version of music-theory tension builds. The
+last layer is resolution, and the resolution note is the next token.
+
+## 11. Parallelism is the key
+
+Parallelism is the absolute, crucial key to making this work, digital or analog.
+
+Every single weight, every neuron value, every add, in parallel. At most one tick
+per layer — and that should collapse to one cycle too.
+
+**The depth of a model is only the parallel processes possible on it.**
+
+12 bits in a pulse width:
+
+```
+000000000001111111111
+```
+
+0 for 11 cycles of time, then 1 for 11 cycles. From there you can put a terminal
+code, or flow straight into the next one, or run the entire stream in parallel
+from 22 encoders each outputting a 0 or a 1.
+
+Reference point: Mythic stores weights in FLASH as voltage at 8 bits. A pulse
+width carries 12.
