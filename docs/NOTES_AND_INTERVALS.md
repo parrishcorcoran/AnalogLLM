@@ -212,8 +212,45 @@ it at 9. Verified against controls in `experiments/weight_structure.py`.
 
 So "most of the energy is in near-random directions" is not evidence against
 structure in the bulk. It is what structure in the bulk looks like from a
-second-order test. The bulk may be a low-dimensional holographic symphony and
-every earlier test here would have called it noise. **[open]**
+second-order test. Every earlier test here would have called a ten-generator
+matrix noise.
+
+**Intrinsic dimension, measured on gpt2 by the owner with TwoNN** (Facco et al.
+2017). Reported readings, plus de-biasing measured here against clouds of known
+dimension at the same sample count: **[owner]** for the readings, **[measured]**
+for the correction.
+
+| | TwoNN read | true dim | of 768 |
+|---|---|---|---|
+| random control | 160.88 | 768 | 100% |
+| block1 mlp.c_fc | 117.26 | 473 | 62% |
+| block6 mlp.c_fc | 85.30 | 270 | 35% |
+| block12 mlp.c_fc | 43.11 | 79 | 10% |
+| embedding table | 35.16 | 58 | 8% |
+| **block1 attn.c_attn** | **7.41** | **8** | **1%** |
+
+Two things about reading these. The estimator needs samples exponential in the
+true dimension, so it reads low — but the bias is 4.9x at true 768 and under 1%
+below true 10. **A low reading is therefore trustworthy and a high one is a
+floor**, which is the opposite of the usual worry: 7.41 is not a squashed 400,
+it is about 8. The control landing at 160.88 where a synthetic full-dimensional
+cloud reads 157.88 says the measurement itself is sound. **[measured]**
+
+And the de-biasing matters for the rest: 117 against a control of 161 looks like
+a small gap and is really 473 of 768. The shape that survives correction is
+**intrinsic dimension collapsing with depth** — 473, 270, 79 across blocks 1, 6
+and 12 — and block 1's attention sitting at 8.
+
+One artifact fakes a low reading and only one. Near-duplicate rows do not bias
+TwoNN, they annihilate it: 10% of them take a genuinely 768-dimensional cloud
+from 157 to **0.27**, and it is a cliff rather than a slope. Separated clusters
+— gpt2's fused Q/K/V is three of them — barely move it, 157 to 145. So the
+duplicate fraction has to be reported next to any low dimension, and the probe
+now does. **[measured]**
+
+What a real intrinsic dimension of 8 would mean, if it survives that check:
+each row of the projection is set by 8 numbers rather than 768. Per note that is
+8 values and a shared shape, so 768 x 8 = 6,144 instead of 589,824. **[open]**
 - Attention setting the key — which resolutions are available — is a guess and
   nothing has been measured. **[open]**
 - How the interval is physically formed. **[open]**

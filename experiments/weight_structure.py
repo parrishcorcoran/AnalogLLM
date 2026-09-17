@@ -108,6 +108,66 @@ def nonnormality(W):
     return np.linalg.norm(W @ W.T - W.T @ W) / np.linalg.norm(W) ** 2
 
 
+def twonn(X, discard=0.1):
+    """Intrinsic dimension of a point cloud. Facco et al. 2017: with r1, r2 the
+    two nearest-neighbour distances, mu = r2/r1 has CDF 1 - mu^-d."""
+    X = np.asarray(X, np.float64)
+    sq = (X * X).sum(1)
+    d2 = sq[:, None] + sq[None, :] - 2.0 * (X @ X.T)
+    np.fill_diagonal(d2, np.inf)
+    nn = np.sqrt(np.maximum(np.sort(d2, axis=1)[:, :2], 0.0))
+    ok = nn[:, 0] > 0
+    mu = np.sort(nn[ok, 1] / nn[ok, 0])
+    k = int(len(mu) * (1 - discard))
+    mu, F = mu[:k], np.arange(1, k + 1) / len(mu)
+    x, y = np.log(mu), -np.log1p(-F)
+    return float((x @ y) / (x @ x))
+
+
+_CAL = {}
+
+
+def calibrate(n, dim, rng):
+    """TwoNN needs samples exponential in the true dimension, so it reads low.
+    Measured here rather than assumed: clouds of KNOWN dimension at this exact
+    sample count, then interpolate backwards. The bias is ~4.9x at true 768 and
+    under 1% below true 10 -- so a LOW reading is trustworthy and a high one is
+    a floor. That is the opposite of the usual worry."""
+    key = (n, dim)
+    if key not in _CAL:
+        cap = min(dim, n)
+        truth = [t for t in (2, 5, 10, 20, 50, 100, 200, 400) if t < cap] + [cap]
+        reads = []
+        for t in truth:
+            Z = rng.standard_normal((n, t))
+            Q = np.linalg.qr(rng.standard_normal((dim, t)))[0]  # t <= dim
+            reads.append(twonn(Z @ Q.T))
+        _CAL[key] = (np.array(reads), np.array(truth, float))
+    return _CAL[key]
+
+
+def intrinsic(W, rng):
+    """De-biased intrinsic dimension, plus the one thing that fakes a low one.
+
+    Near-duplicate rows do not bias TwoNN, they annihilate it: 10% of them take
+    a genuinely 768-dimensional cloud to 0.27. It is a cliff, not a slope, so
+    dup% is the number that says whether the dimension is real. Three separated
+    clusters -- e.g. gpt2's fused Q/K/V -- barely move it (157 -> 145)."""
+    W = np.asarray(W, np.float64)
+    n, dim = W.shape
+    raw = twonn(W)
+    reads, truth = calibrate(n, dim, rng)
+    order = np.argsort(reads)
+    deb = float(np.interp(raw, reads[order], truth[order]))
+
+    sq = (W * W).sum(1)
+    d2 = sq[:, None] + sq[None, :] - 2.0 * (W @ W.T)
+    np.fill_diagonal(d2, np.inf)
+    r1 = np.sqrt(np.maximum(d2.min(axis=1), 0.0))
+    dup = float((r1 < 0.01 * np.median(r1)).mean())
+    return raw, deb, 100.0 * dup
+
+
 def measure(W):
     W = np.asarray(W, dtype=np.float64)
     return (diag_constancy(W), shift_concentration(W), rank90(W),
@@ -188,6 +248,27 @@ def main():
     for k in sorted(got):
         v = np.array(got[k])
         print(ROW % ((k + "  (n=%d)" % len(v),) + tuple(v.mean(axis=0))))
+
+    # intrinsic dimension on WHOLE matrices, not square blocks -- the point
+    # cloud is the rows, and cutting it changes what is being measured.
+    rng = np.random.default_rng(0)
+    print("\n%-26s %-10s %-12s %-8s %s" % (
+        "", "TwoNN", "de-biased", "of dim", "dup%"))
+    with torch.no_grad():
+        for n, blk in enumerate(blocks[:limit]):
+            if n not in (0, len(blocks) // 2, min(limit, len(blocks)) - 1):
+                continue
+            for pname, p in blk.named_parameters():
+                if p.ndim != 2:
+                    continue
+                W = p.detach().float().numpy()
+                if W.shape[0] < W.shape[1]:
+                    W = W.T                       # rows = the point cloud
+                raw, deb, dup = intrinsic(W, rng)
+                print("%-26s %-10.2f %-12.0f %-8s %.1f" % (
+                    "block%d %s" % (n + 1, pname.replace(".weight", "")),
+                    raw, deb, "%.0f%% of %d" % (100 * deb / W.shape[1], W.shape[1]), dup))
+    print("\ndup%% above a few percent means the dimension reading is void, not low.")
 
     print("\nread generators FIRST, then rank and non-normal")
     print("(read rank and non-normal FIRST -- they are basis-independent.")
