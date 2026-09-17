@@ -23,7 +23,31 @@ is why negatives need no sign bit and no separate machinery. **[arithmetic]**
 So the multiply is not made cheaper. It is gone. What is left is rotating and
 summing, and a medium does both without being asked.
 
-## 2. A station is a rotation
+## 2. The dial is a change of base, not a quantization
+
+Every number in the model, weights and activations both, carried as a position
+on a 4096 dial plus a lap counter. The head is the exception and gets four
+digits. This is **fp32 accurate**. **[owner]**
+
+It is exact for a structural reason, not by luck: **[arithmetic]**
+
+| | |
+|---|---|
+| one dial | 4096 = 2^12 |
+| dial plus one lap | 4096 x 4096 = 2^24 |
+| fp32 significand | 2^24 |
+
+One dial and one lap *is* fp32's mantissa, to the bit. Which is why the number
+is 4096 and not 1024 or 8192 — it is the square root of fp32.
+
+So this is not 12-bit anything. It is the same number written in base 4096 with
+two digits instead of base 2 with twenty-four. Nothing is rounded because
+nothing is discarded, and the phrase "we will not quantize" is literal.
+
+The head at four digits is 2^48, well past fp32 — headroom where 50,257
+near-ties have to be separated.
+
+## 3. A station is a rotation
 
 Send a wave down a fixed length. It comes out further around its own circle, and
 how much further depends on how fast it wiggles. The length is built once and
@@ -36,7 +60,7 @@ set forever unless you train — which is the requirement the weights already ha
 Go high enough and it comes all the way around and starts over. The wrap is the
 mod, done by the medium, with no counter anywhere.
 
-## 3. A weight is an interval
+## 4. A weight is an interval
 
 A weight needs two addresses: it is the weight *from* note j *to* note i. A pitch
 only has one. The second address comes from the pair — the interval between two
@@ -60,7 +84,7 @@ If the notes are evenly spaced this breaks — 768 evenly spaced notes give only
 The notes have to be spaced so no two pairs sit the same distance apart. That
 costs span, not precision: ~295,000 notches instead of 768. **[arithmetic]**
 
-## 4. Tension and resolution
+## 5. Tension and resolution
 
 Not metaphor. Tension in music is beating — two things close but not equal,
 wobbling at their difference, a real envelope you can put a meter on. Resolution
@@ -79,7 +103,7 @@ same tied matrix used in both directions: word to chord, chord back to word.
 fork rings. If the forks are physically present and the chord is physically
 played, the loudest one is loudest. There is no argmax to perform.
 
-## 5. The net is already doing superposition
+## 6. The net is already doing superposition
 
 The residual stream carries far more features than it has dimensions, by putting
 them in nearly-orthogonal directions and tolerating the overlap. The published
@@ -102,7 +126,7 @@ the deal. The crosstalk is bought, not suffered.
 interference level. Noise the medium adds *underneath* that level is invisible —
 not acceptable, invisible. Only noise that pokes above it costs anything.
 
-## 6. Why this does not speed up a normal computer
+## 7. Why this does not speed up a normal computer
 
 It is worth writing down why the same trick does not just make PyTorch faster.
 
@@ -128,7 +152,7 @@ So the claim is not "adds instead of multiplies." It is that **the weight never
 travels**. A station is not fetched. The 640 pJ is not reduced, it is never
 incurred, because there is nothing to move.
 
-## 7. Tuning, and what it costs
+## 8. Tuning, and what it costs
 
 A resonator does not read. It responds. And a bank of them responds *at once* —
 4096 tuned things on one wire all ring simultaneously from the same passing
@@ -150,7 +174,7 @@ The price is selectivity: you must listen long enough to tell neighbours apart.
 At 10 GHz the loop that spaces the comb correctly is **2 cm** long. Holding
 notes in frequency rather than strung out in space makes the medium small.
 
-## 8. What the whole model costs, in these units
+## 9. What the whole model costs, in these units
 
 **[arithmetic]** GPT-2 small, standard, no trades:
 
@@ -164,11 +188,14 @@ notes in frequency rather than strung out in space makes the medium small.
 Early exit and early start are deliberately **not** used. They buy speed with
 accuracy, which is the same trade as quantizing. Standard model first.
 
-## 9. Open
+## 10. Open
 
-- Do GPT-2's trained values land on intervals a real medium can produce, or do
-  they need 589,824 arbitrary numbers with no structure between them? This is
-  the difference between a build and a wish. **[open]**
+- Precision is settled (section 2). What is not settled is **structure**: can
+  W_ij be *generated* as the interval between two per-note quantities, or does
+  it have to be *stored* as 589,824 independent values? Exactness says the
+  numbers are right; it says nothing about whether they have the shape a pair
+  of notes can make. This is the difference between a build and a wish.
+  **[open]**
 - Attention setting the key — which resolutions are available — is a guess and
   nothing has been measured. **[open]**
 - How the interval is physically formed. **[open]**
