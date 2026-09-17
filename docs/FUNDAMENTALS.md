@@ -162,3 +162,41 @@ algebra. The digital version is the translation; the analog version is the
 original.
 
 That is why it works.
+
+## 14. Bind and unbind are what the medium already does
+
+Analog is not a *transport* between an encoder and a decoder. The encoding and
+the decoding happen in the same place, in the same stuff. That is why "encoder"
+and "decoder" stop being separate boxes — they are one physics, run in two
+directions.
+
+All three HRR operations are things a wire does:
+
+| HRR operation | what the medium does | components needed |
+|---|---|---|
+| **bundle** (superpose) | two signals sharing a conductor add | **none** |
+| **bind** | convolution in time = elementwise multiply in frequency = **a filter** | a filter |
+| **unbind** | correlation = **a matched filter**, the conjugate response | the same filter, reversed |
+
+The Fourier flip matters and is easy to get backwards: HRR binding is *circular
+convolution in time*, which is *elementwise multiplication in frequency*. A
+filter convolves in time. So **a filter is a bind**, and its impulse response is
+the thing being bound with.
+
+Which means: **the weight vector is a filter's impulse response.** Not a metaphor
+— a filter's response IS a vector of per-frequency complex gains, which is
+exactly what a weight vector is in FHRR.
+
+And a filter's impulse response is a physical object: a tapped delay line, an LC
+network, a length of wire with reflections at chosen points. A tapped line whose
+reflection coefficients are the weights, timed so every echo lands on one sample,
+**is an HRR binding circuit**. Nothing is computed. The geometry is the weight
+and the arrival is the answer.
+
+Unbinding is the same object read the other way — a matched filter, which is
+correlation, which is binding with the conjugate. **Bind and unbind are one
+component and a sign.**
+
+[The mapping is exact — superposition, the convolution theorem, and matched
+filtering are all definitional. What is NOT established is whether it holds at
+the precision a pretrained model needs. That is a measurement, not a derivation.]
