@@ -39,6 +39,7 @@ docs/NOTES_AND_INTERVALS.md
                         the model read as notes. what a station, a weight and
                         a resolution are. every claim tagged by provenance.
 docs/PRIOR_ART.md       external published work. facts, with sources.
+docs/KIMI_UNITS.md      every result restated for Kimi K3. dollar per tok/s.
 docs/RESULTS.md         what has actually been measured here.
 docs/BUILDING_BLOCKS.md the pieces, and the one hard part.
 docs/MEDIA_PER_DOLLAR.md theoretical maximums per dollar. no builds.
