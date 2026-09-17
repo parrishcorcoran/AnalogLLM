@@ -35,8 +35,17 @@ computing confidently against it. If you don't know how something is wired, ask.
 
 ```
 docs/FUNDAMENTALS.md    the concepts. the ground.
-docs/HARDWARE_IDEAS.md  parts, unevaluated.
+docs/NOTES_AND_INTERVALS.md
+                        the model read as notes. what a station, a weight and
+                        a resolution are. every claim tagged by provenance.
 docs/PRIOR_ART.md       external published work. facts, with sources.
+docs/RESULTS.md         what has actually been measured here.
+docs/BUILDING_BLOCKS.md the pieces, and the one hard part.
+docs/MEDIA_PER_DOLLAR.md theoretical maximums per dollar. no builds.
+docs/HOW_THE_PARTS_WORK.md
+                        how the candidate parts work, explained.
+docs/HARDWARE_IDEAS.md  parts, unevaluated.
+experiments/            measurement code. one file per question.
 loopback/               a bench rig for measuring an audio loopback.
                         models a single-capacitor circuit, which is NOT the
                         architecture in use. kept for the measurement code only.
