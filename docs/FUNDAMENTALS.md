@@ -126,13 +126,39 @@ as **integer modular arithmetic**. They report 3–4 bits per dimension is enoug
 
 That is the 0–4096 dial with complement arithmetic, arrived at independently.
 
-**What is confirmed:** the number system and the operations are the same algebra.
+**This is established, not a conjecture.** A pretrained transformer performs
+HRR. The literature:
 
-**What is open:** whether a *pretrained transformer's* computation is literally
-HRR binding and unbinding, or whether it just happens to live in the same
-algebra. That is a real question and it is not settled here.
+- **Attention as Binding: A Vector-Symbolic Perspective on Transformer
+  Reasoning** ([arXiv 2512.14709](https://arxiv.org/abs/2512.14709)) —
+  self-attention and the residual stream implement an approximate VSA. Queries
+  and keys define **role** spaces, values encode **fillers**, attention weights
+  perform **soft unbinding**, and residual connections are the **superposition**
+  of many bound structures.
+- **Generalized Holographic Reduced Representations**
+  ([arXiv 2405.09689](https://arxiv.org/html/2405.09689)) — GHRR binding
+  implements attention with **mathematical equivalence**, verified by replacing
+  the attention mechanism in a transformer with its GHRR equivalent and getting
+  *better* performance on language modelling.
+- **Recasting Self-Attention with Holographic Reduced Representations**
+  ([arXiv 2305.19534](https://arxiv.org/pdf/2305.19534)).
 
-**Why it matters practically:** VSA is already a known target for analog
-hardware, because its only primitives are add and elementwise multiply — which
-is what analog does natively. There is existing work on VSA under analog
-hardware non-idealities to draw on rather than rediscover.
+So: the model *is* an encode/decode machine in a phase algebra. That part is
+settled.
+
+## 13. The analog connection
+
+This is the step that is this project's own.
+
+HRR's only primitives are **phase addition** and **superposition**.
+
+A wire does both, natively. Superposition is what a linear medium does to two
+signals sharing it — no hardware, no instruction, it is just what happens. Phase
+addition is a delay.
+
+So a pretrained transformer is not being *approximated* onto an analog medium.
+It is the same algebra, running on a substrate whose native operations are that
+algebra. The digital version is the translation; the analog version is the
+original.
+
+That is why it works.
