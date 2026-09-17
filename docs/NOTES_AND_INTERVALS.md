@@ -190,12 +190,30 @@ accuracy, which is the same trade as quantizing. Standard model first.
 
 ## 10. Open
 
-- Precision is settled (section 2). What is not settled is **structure**: can
-  W_ij be *generated* as the interval between two per-note quantities, or does
-  it have to be *stored* as 589,824 independent values? Exactness says the
-  numbers are right; it says nothing about whether they have the shape a pair
-  of notes can make. This is the difference between a build and a wish.
-  **[open]**
+Precision is settled (section 2). Structure is not, and the question has a
+number attached to it now.
+
+**How many generators?** `W = sum_k D_k S^k` is exact with d terms. Stack the
+masks as `M[k,i] = W[i, i-k]` and `rank(M) = r` means exactly
+
+    W = sum over r of  diag(u_m) @ C_m
+
+— r amplitude masks, each followed by one convolution. A convolution is a
+binding, so r is the generator count. Small r is a build: r masks and r
+bindings instead of 589,824 stored values. **[arithmetic]**
+
+**A holographic code is built to look random**, and that changes how a null
+result reads. Bound vectors have random-looking entries by construction, so
+singular values and diagonals are precisely the instruments they hide from.
+A matrix made of ten mask-and-bind pairs reads as near-full rank and sits
+exactly on the random null for conv-energy — and the generator test catches
+it at 9. Verified against controls in `experiments/weight_structure.py`.
+**[measured]**
+
+So "most of the energy is in near-random directions" is not evidence against
+structure in the bulk. It is what structure in the bulk looks like from a
+second-order test. The bulk may be a low-dimensional holographic symphony and
+every earlier test here would have called it noise. **[open]**
 - Attention setting the key — which resolutions are available — is a guess and
   nothing has been measured. **[open]**
 - How the interval is physically formed. **[open]**

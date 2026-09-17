@@ -25,6 +25,15 @@ each with a control that pins it.
     rank/90%      basis-independent compressibility. included because it
                   separates "has structure" from "has INTERVAL structure".
 
+    generators    the one that matters, and the one the others are blind to.
+                  a holographic code is BUILT to look random -- bound vectors
+                  have random-looking entries by construction, so singular
+                  values are exactly the instrument it hides from. a matrix
+                  made of 10 mask-and-bind pairs reads near-full rank. this
+                  test rearranges W so the generators become a rank, and
+                  recovers the count. small means buildable: r masks and r
+                  bindings instead of 589,824 stored values.
+
     non-normal    ||WW' - W'W|| / ||W||^2. every circulant is normal, so a
                   large value rules out W being a convolution in ANY basis.
                   zero does not prove it is one; large does disprove it.
@@ -79,32 +88,58 @@ def rank90(W):
     return int(np.searchsorted(np.cumsum(s / s.sum()), 0.90) + 1)
 
 
+def generators(W):
+    """How many mask-and-bind pairs generate W.
+
+    W = sum_k D_k S^k is exact. Stack the masks: M[k,i] = W[i, i-k]. Then
+    rank(M) = r means exactly
+
+        W = sum_{m=1..r} diag(u_m) @ C_m
+
+    -- r amplitude masks, each followed by one convolution. A convolution is a
+    binding, so r IS the generator count. rank(W) cannot see this: a 10-
+    generator matrix has near-full rank and reads as noise."""
+    d = W.shape[0]
+    i = np.arange(d)
+    return rank90(W[i[None, :], (i[None, :] - i[:, None]) % d])
+
+
 def nonnormality(W):
     return np.linalg.norm(W @ W.T - W.T @ W) / np.linalg.norm(W) ** 2
 
 
 def measure(W):
     W = np.asarray(W, dtype=np.float64)
-    return diag_constancy(W), shift_concentration(W), rank90(W), nonnormality(W)
+    return (diag_constancy(W), shift_concentration(W), rank90(W),
+            generators(W), nonnormality(W))
 
 
-HEAD = "%-26s %-12s %-11s %-9s %s" % ("", "conv-energy", "shifts/90%", "rank/90%", "non-normal")
-ROW = "%-26s %-12.4f %-11.0f %-9.0f %.4f"
+HEAD = "%-26s %-12s %-11s %-9s %-11s %s" % (
+    "", "conv-energy", "shifts/90%", "rank/90%", "generators", "non-normal")
+ROW = "%-26s %-12.4f %-11.0f %-9.0f %-11.0f %.4f"
+
+
+def _circulant(c):
+    """One kernel, rolled. Drawing a fresh vector per row gives a plain random
+    matrix and silently kills the control -- this bit twice while writing it."""
+    return np.array([np.roll(c, i) for i in range(len(c))])
 
 
 def controls(d, rng):
     print("CONTROLS  (what each test looks like when you already know the answer)\n")
     print(HEAD)
     rand = rng.standard_normal((d, d))
-    c = rng.standard_normal(d)
-    circ = np.array([np.roll(c, i) for i in range(d)])
+    circ = _circulant(rng.standard_normal(d))
     lowr = rng.standard_normal((d, 20)) @ rng.standard_normal((20, d))
     fewk = np.zeros((d, d))
     idx = np.arange(d)
     for k in (0, 5, 17, 60, 200):
         fewk[idx, (idx - k) % d] = rng.standard_normal(d)
+    gen10 = sum(np.diag(rng.standard_normal(d)) @ _circulant(rng.standard_normal(d))
+                for _ in range(10))
     for name, M in [("random -- THE NULL", rand), ("true convolution", circ),
-                    ("rank-20", lowr), ("5 shifts + masks", fewk)]:
+                    ("rank-20", lowr), ("5 shifts + masks", fewk),
+                    ("10 mask-and-bind pairs", gen10)]:
         print(ROW % ((name,) + measure(M)))
     print("\n  no structure at all reads conv-energy = 1/d = %.4f\n" % (1.0 / d))
 
@@ -154,7 +189,8 @@ def main():
         v = np.array(got[k])
         print(ROW % ((k + "  (n=%d)" % len(v),) + tuple(v.mean(axis=0))))
 
-    print("\nread rank and non-normal FIRST -- they are basis-independent.")
+    print("\nread generators FIRST, then rank and non-normal")
+    print("(read rank and non-normal FIRST -- they are basis-independent.")
     print("conv-energy and shifts are measured in an arbitrary basis, so a high")
     print("value is strong evidence and a low value proves nothing.")
     return 0
