@@ -162,3 +162,29 @@ def test_budget_arithmetic():
     assert b["macs_per_s"] == pytest.approx(6_000.0)
     assert b["gpt2_seconds_per_token"] == pytest.approx(
         rig.GPT2_MACS_PER_TOKEN / 6_000.0)
+
+
+# ----------------------------------------------------------------- the budget
+
+def test_serial_rate_is_samples_over_ticks_per_mac():
+    from loopback import budget
+    assert budget.serial_rate(2, 48_000, 8) == pytest.approx(12_000.0)
+    assert budget.serial_rate(1, 48_000, 1) == pytest.approx(48_000.0)
+
+
+def test_parallel_throughput_ignores_the_mac_count():
+    """Depth is an addition when every stage is live, not a multiplication."""
+    from loopback import budget
+    flowing = budget.parallel_tokens_per_s(48_000, flowing=True)
+    staged = budget.parallel_tokens_per_s(48_000, flowing=False)
+    assert flowing == pytest.approx(48_000 / (budget.PDM_RATE + budget.GPT2_DEPTH))
+    assert staged == pytest.approx(
+        48_000 / (budget.PDM_RATE * budget.GPT2_LINEAR_STAGES))
+    assert flowing > 40 * staged
+
+
+def test_serial_is_far_below_the_software_machine():
+    """The headline: audio as a transport loses to the laptop it is plugged into."""
+    from loopback import budget
+    best = max(budget.serial_rate(ch, fs, 1) for _, ch, fs in budget.LINKS)
+    assert best / budget.GPT2_MACS_PER_TOKEN < 1.0      # under 1 tok/s, at best
