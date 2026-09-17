@@ -95,3 +95,44 @@ from 22 encoders each outputting a 0 or a 1.
 
 Reference point: Mythic stores weights in FLASH as voltage at 8 bits. A pulse
 width carries 12.
+
+## 12. What this is called: HRR / FHRR / VSA
+
+The number system above is not new — it has a name, a literature, and a
+vocabulary. That is useful: it means other people's work can be read, and this
+can be described to someone in one sentence instead of twenty.
+
+**Holographic Reduced Representations (HRR)**, Tony Plate. Structured
+information in fixed-width vectors, composed with algebraic binding. The broader
+field is **Vector Symbolic Architectures (VSA)** / **hyperdimensional computing**.
+
+**FHRR** — Fourier HRR — is the variant that matches this project almost
+exactly. Every dimension is a **unit-magnitude complex phasor**: magnitude fixed
+at 1, phase carries the information.
+
+| here | FHRR |
+|---|---|
+| 0–4096 on a circle | a phase |
+| lap counter is amplitude, matters but not much | magnitude fixed at 1 |
+| all we are is adds | bundling = superposition = addition |
+| complementary pairs, −1000 = 3096 | unbinding = complex conjugate = phase negation |
+| abelian | phase addition is the circle group, commutative |
+
+And there is a quantized version: **qFHRR** — *Rethinking Fourier Holographic
+Reduced Representations through Quantized Phase and Integer Arithmetic*
+([arXiv 2604.25939](https://arxiv.org/abs/2604.25939)). Each dimension is a
+**discrete phase index**, with binding, unbinding, bundling and similarity done
+as **integer modular arithmetic**. They report 3–4 bits per dimension is enough.
+
+That is the 0–4096 dial with complement arithmetic, arrived at independently.
+
+**What is confirmed:** the number system and the operations are the same algebra.
+
+**What is open:** whether a *pretrained transformer's* computation is literally
+HRR binding and unbinding, or whether it just happens to live in the same
+algebra. That is a real question and it is not settled here.
+
+**Why it matters practically:** VSA is already a known target for analog
+hardware, because its only primitives are add and elementwise multiply — which
+is what analog does natively. There is existing work on VSA under analog
+hardware non-idealities to draw on rather than rediscover.
