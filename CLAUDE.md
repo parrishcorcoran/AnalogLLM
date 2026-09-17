@@ -47,6 +47,7 @@ docs/HOW_THE_PARTS_WORK.md
                         how the candidate parts work, explained.
 docs/HARDWARE_IDEAS.md  parts, unevaluated.
 experiments/            measurement code. one file per question.
+                        test1_does_the_wire_add.py is the bench test to run.
 loopback/               a bench rig for measuring an audio loopback.
                         models a single-capacitor circuit, which is NOT the
                         architecture in use. kept for the measurement code only.
