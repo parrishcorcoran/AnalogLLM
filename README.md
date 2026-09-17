@@ -81,18 +81,32 @@ level — dividing by it only clips the drive. So the cable's capacity for one d
 product is a **count of usable slots**, and past ~256 ticks that count starts
 falling. This is the number to design against, not the train length.
 
-**3. The cable is an instrument, not an engine.** `[DERIVED]` One slot carries one
-multiply-accumulate. At 48 kHz with an 8-tick slot that is 6,000 MAC/s on one
-channel. GPT-2 needs ~124M MACs per token, so the whole model through one cable is
-**~5.7 hours per token** — and no encoding fixes that, because the ceiling is
-`sample_rate / slot_ticks` and the sample rate is the sample rate.
+**3. Speed is set by how many weights are physically in the circuit, not by the
+clock alone.** `[DERIVED]` `python3 -m loopback.budget`. One input value in GPT-2
+drives 1,892 multiply-accumulates — it reaches every output neuron of its layer
+through a different weight. Whether the wire performs those 1,892 at once or one
+at a time is the entire question, and it is decided by how many resistors are
+soldered to it, not by the sample rate.
 
-What the cable *can* do at that rate is one 768-input neuron every 128 ms. So the
-honest shape of this project is a **hardware-in-the-loop GPT-2**: real dot products
-computed in copper, the rest in software, and the question being answered is
-whether the token survives. The timing-substrate numbers already say ~1,024
-parallel converters is where thousands of tokens per second live. A cable gives
-you one.
+| tier | what is physically there | ticks/token, PDM-exact | @48 kHz | @DSD512 |
+|---|---|---|---|---|
+| 1 | one resistor, one cap | 126,496,800,768 | 31 days | 1.6 h |
+| 2 | crossbar, 4-in/4-out interface | 16,711,680 | 5.8 min | 1.35 tok/s |
+| 2 | crossbar, 256-in/256-out | 261,120 | 5.4 s | 86 tok/s |
+| 3 | one wire per weight, flowing | 1,036 | 46 tok/s | 21,795 tok/s |
+
+Every row scales linearly with the clock — so cycle speed *is* everything, within
+a tier. But the whole span of audio clock rates, 48 kHz to DSD512, is worth 470×,
+and moving one rung up the ladder is worth 7,569×. Tier 1 is the only rung that
+is a wiring change; the rest are hardware builds, and tier 2 needs 133,201
+reprogrammable conductances, which is the component the handoff already flags as
+the open problem.
+
+The useful consequence: **tier 1 will never beat the software machine** (23.8
+tok/s [MEASURED]) at any audio clock that exists. It is not there to be fast. It
+is there to answer whether charge on a wire stays linear enough to hold a
+transformer, at a 20 µs tick — within a factor of 20 of the microsecond substrate
+the handoff says to build first.
 
 ## Layout
 

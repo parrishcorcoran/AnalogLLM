@@ -1,141 +1,200 @@
 #!/usr/bin/env python3
 """budget.py -- how fast can audio possibly go?
 
-There are two completely different questions hiding in "how fast is audio", and
-they have answers four orders of magnitude apart. Keeping them separate is the
-whole point of this file.
+Cycle speed sets the rate. What it gets multiplied BY is set by how many weights
+are physically present in the circuit, and that spans five orders of magnitude.
+So the honest answer is a ladder, not a number.
 
-    SERIAL   -- what a cable can do. Every multiply-accumulate has to take its
-                turn down the wire, so the limit is samples per second and
-                nothing else. This is what you can build today.
+    tok/s  =  cycle_rate / ticks_per_token
 
-    PARALLEL -- what an audio-rate CLOCK implies for the substrate the cable is
-                a model of: one wire per weight, every line live at once. Here
-                the MAC count does not appear at all. The limit is ticks per
-                token, which the flowing machine measured at depth + cycle.
+Cycle rate is the audio clock. Ticks-per-token is the tier below. Every row
+scales linearly with the clock -- doubling the sample rate doubles every number
+in this file. That is why cycle speed is everything. But the tier sets the
+constant, and the constant spans 1e5.
 
-The cable is slow. The clock is not. The entire gap between them is parallelism,
-which is exactly the distinction PARALLELISM_AND_THROUGHPUT.pdf was written to
-make: tick-operations are total work, time-in-ticks is how long you wait.
+THE THING THAT SETS THE TIER: fanout.
 
-All figures [DERIVED] -- arithmetic over the measured numbers in
-docs/INHERITED_CONTEXT.md. Nothing here has touched hardware.
+One input value in GPT-2 drives 1,892 multiply-accumulates on average -- it
+reaches every output neuron of its layer through a different weight. If the
+weights exist as physical components, one pulse down the wire performs all 1,892
+at once, for free, because the wire fans out into them. If there is one resistor
+and one capacitor, that pulse performs exactly one, and the other 1,891 have to
+be transmitted separately.
+
+That is the whole ladder. Not the clock -- the clock is the same in every row.
+
+GPT-2 (124M) constants below are derived from the config in derive(), not quoted,
+and n_in reproduces the 65,280 in WATER_TO_CONVERTER.pdf as a check.
+
+All figures [DERIVED] from the measured numbers in docs/INHERITED_CONTEXT.md.
+Nothing here has touched hardware.
 """
 from __future__ import annotations
 
-GPT2_MACS_PER_TOKEN = 124_000_000    # ~124M params, each used once per token
-GPT2_LINEAR_STAGES = 48              # 12 blocks x 4 linear layers
-GPT2_DEPTH = 12                      # blocks, for the flowing arrangement
-PDM_RATE = 1024                      # oversampling at which PDM was bit-identical
+N_EMBD, N_LAYER, VOCAB = 768, 12, 50257
+LAYERS = [("c_attn", 768, 2304), ("attn.c_proj", 768, 768),
+          ("mlp.c_fc", 768, 3072), ("mlp.c_proj", 3072, 768)]
 
-# What audio hardware actually carries, as total samples per second. Channel
-# count times sample rate is the only thing that matters -- a tick is a sample,
-# whichever wire it arrives on.
-LINKS = [
-    ("built-in jack, mono",        1,    48_000),
-    ("built-in jack, stereo",      2,    48_000),
-    ("built-in at 96k, stereo",    2,    96_000),
-    ("USB interface, 2ch @ 192k",  2,   192_000),
-    ("USB interface, 8ch @ 192k",  8,   192_000),
-    ("MADI, 64ch @ 48k",          64,    48_000),
-    ("Dante on 1GbE, ~512ch",    512,    48_000),
+PDM_RATE = 1024      # oversampling at which PDM went bit-identical to fp32
+GPT2_DEPTH = 12      # blocks, for the flowing arrangement
+LINEAR_STAGES = 48   # 12 blocks x 4 linear layers, for the staged arrangement
+SOFTWARE_TOK_S = 23.8   # water.py on the owner's laptop [MEASURED]
+
+
+def derive() -> dict:
+    """Every GPT-2 constant this file uses, from the config."""
+    macs = sum(i * o for _, i, o in LAYERS) * N_LAYER + N_EMBD * VOCAB
+    n_in = sum(i for _, i, _ in LAYERS) * N_LAYER + N_EMBD
+    n_out = sum(o for _, _, o in LAYERS) * N_LAYER + VOCAB
+    return {"macs": macs, "n_in": n_in, "n_out": n_out, "fanout": macs / n_in}
+
+
+G = derive()
+
+
+# ---------------------------------------------------------------- the ladder
+
+def ticks_one_accumulator(slot_ticks: int = 1, **_) -> int:
+    """TIER 1 -- one resistor, one cap. The $2 circuit.
+
+    There is a single accumulator, so every multiply-accumulate has to be
+    transmitted on its own. The wire's fanout is one. This is the tier the
+    loopback rig measures, and it is the slowest arrangement that exists.
+    """
+    return G["macs"] * slot_ticks
+
+
+def ticks_crossbar(slot_ticks: int = 1, emit_channels: int = 1,
+                   read_channels: int = 1, **_) -> int:
+    """TIER 2 -- weights as physical components. One wire, many resistors.
+
+    The emitting wire fans out into one resistor per output neuron, each into
+    its own cap. One pulse train of n_in slots now performs every MAC in the
+    layer simultaneously -- the 1,892x is recovered, and it is recovered by
+    copper, not by cleverness.
+
+    What does not come free is the I/O: n_in values have to be emitted and
+    n_out caps have to be read back, each through however many channels the
+    interface has. Emitting and reading run at the same time on a duplex
+    interface, so the cost is whichever side is slower. Note what this means --
+    once the weights are physical, CHANNEL COUNT is the lever, not sample rate.
+    """
+    emit = G["n_in"] * slot_ticks / max(1, emit_channels)
+    read = G["n_out"] / max(1, read_channels)
+    return int(max(emit, read))
+
+
+def ticks_substrate(flowing: bool = True, **_) -> int:
+    """TIER 3 -- one wire per weight, every line live. The real machine.
+
+    Neither the MAC count nor the neuron count appears. Depth stops multiplying
+    and starts adding, which is the flowing result: cycle + depth, measured at
+    lock-in tick 15 of 128 on real GPT-2.
+    """
+    return (PDM_RATE + GPT2_DEPTH) if flowing else (PDM_RATE * LINEAR_STAGES)
+
+
+CLOCKS = [
+    ("built-in jack", 48_000),
+    ("built-in at 96k", 96_000),
+    ("USB interface 192k", 192_000),
+    ("top audio ADC 768k", 768_000),
+    ("DSD64 bitstream 2.8M", 2_822_400),
+    ("DSD512 bitstream 22.6M", 22_579_200),
 ]
 
-# What a tick buys, depending on how the activation is coded. This is the one
-# real dial: the wire multiplies by holding an amplitude for a duration, so the
-# duration IS the activation's resolution, and it is paid for in ticks.
-CODINGS = [
-    ("binary activation (1 bit)",        1),
-    ("3-bit activation (rig's point)",   8),
-    ("6-bit activation",                64),
-]
 
-
-def serial_rate(channels: int, fs: int, ticks_per_mac: int) -> float:
-    """MACs per second down a wire. One slot carries one MAC."""
-    return channels * fs / ticks_per_mac
-
-
-def human_time(seconds: float) -> str:
+def human(seconds: float) -> str:
+    if seconds < 1e-3:
+        return f"{seconds*1e6:.0f} us"
     if seconds < 1:
-        return f"{seconds*1e3:.0f} ms"
+        return f"{seconds*1e3:.1f} ms"
     if seconds < 90:
-        return f"{seconds:.1f} s"
+        return f"{seconds:.2f} s"
     if seconds < 5400:
         return f"{seconds/60:.1f} min"
     if seconds < 86400 * 2:
         return f"{seconds/3600:.1f} h"
-    return f"{seconds/86400:.1f} days"
+    return f"{seconds/86400:.0f} days"
 
 
-def parallel_tokens_per_s(fs: float, flowing: bool = True) -> float:
-    """One wire per weight: the MAC count vanishes, only ticks per token remain.
-
-    Flowing -- every stage live on the same clock -- costs the converter's own
-    cycle plus the depth, because depth becomes an addition rather than a
-    multiplication. Staged costs one full cycle per stage.
-    """
-    ticks = (PDM_RATE + GPT2_DEPTH) if flowing else (PDM_RATE * GPT2_LINEAR_STAGES)
-    return fs / ticks
+def row(label: str, ticks: int) -> None:
+    """One tier across every clock. Below 1 tok/s the useful unit is time."""
+    cells = []
+    for _, fs in CLOCKS:
+        tps = fs / ticks
+        cells.append(f"{tps:>10,.0f}" if tps >= 10 else
+                     f"{tps:>10,.2f}" if tps >= 1 else
+                     f"{human(ticks / fs):>10s}")
+    print(f"  {label:34s}" + "".join(cells))
 
 
 def main() -> None:
-    print("=" * 78)
-    print("  SERIAL -- GPT-2 down an audio cable. Every MAC takes its turn.")
-    print("=" * 78)
-    for name, ticks in CODINGS:
-        print(f"\n  {name}: {ticks} tick(s) per MAC")
-        print(f"    {'link':28s} {'samples/s':>12s} {'MAC/s':>12s} {'per token':>12s}")
-        print(f"    {'-'*28} {'-'*12} {'-'*12} {'-'*12}")
-        for link, ch, fs in LINKS:
-            macs = serial_rate(ch, fs, ticks)
-            print(f"    {link:28s} {ch*fs:12,d} {macs:12,.0f} "
-                  f"{human_time(GPT2_MACS_PER_TOKEN / macs):>12s}")
-
-    print()
-    print("=" * 78)
-    print("  PARALLEL -- one wire per weight, clocked at an audio rate.")
-    print("  The MAC count does not appear. Only ticks per token.")
-    print("=" * 78)
-    print(f"\n    flowing: {PDM_RATE} + {GPT2_DEPTH} = {PDM_RATE + GPT2_DEPTH:,} ticks/token")
-    print(f"    staged:  {PDM_RATE} x {GPT2_LINEAR_STAGES} = "
-          f"{PDM_RATE * GPT2_LINEAR_STAGES:,} ticks/token\n")
-    print(f"    {'tick rate':28s} {'staged tok/s':>14s} {'flowing tok/s':>15s}")
-    print(f"    {'-'*28} {'-'*14} {'-'*15}")
-    for label, fs in [("48 kHz  (built-in audio)", 48_000),
-                      ("192 kHz (good interface)", 192_000),
-                      ("768 kHz (top audio ADC)", 768_000),
-                      ("1 MHz   (FPGA, the plan)", 1_000_000),
-                      ("1 GHz   (copper geometry)", 1_000_000_000)]:
-        print(f"    {label:28s} {parallel_tokens_per_s(fs, False):14,.1f} "
-              f"{parallel_tokens_per_s(fs, True):15,.0f}")
-
-    best = max(serial_rate(ch, fs, 1) for _, ch, fs in LINKS)
-    print()
-    print("=" * 78)
-    print("  THE ANSWER")
-    print("=" * 78)
     print(f"""
-    Serial ceiling, best case, every favourable assumption granted -- the
-    biggest audio network in the building and a 1-bit activation:
+GPT-2 (124M), derived from config:
+    {G['macs']:>12,}  multiply-accumulates per token
+    {G['n_in']:>12,}  input values   (WATER_TO_CONVERTER.pdf says 65,280 -- matches)
+    {G['n_out']:>12,}  output values
+    {G['fanout']:>12,.0f}  MACs driven by one input value  <-- the factor the tier decides
+""")
+    print("=" * 96)
+    print("  TOKENS PER SECOND. Every row scales linearly with the clock.")
+    print("=" * 96)
+    print(f"  {'':34s}" + "".join(f"{n.split()[-1]:>10s}" for n, _ in CLOCKS))
+    print(f"  {'tier':34s}" + "".join(f"{'':>10s}" for _ in CLOCKS))
+    print("  " + "-" * 94)
 
-        {best:,.0f} MAC/s  ->  {human_time(GPT2_MACS_PER_TOKEN/best)} per token
-                                  ({best/GPT2_MACS_PER_TOKEN:.2f} tok/s)
+    print("  DRAFT precision -- 1 tick per value, so a 1-bit activation.")
+    row("1  one cap", ticks_one_accumulator(1))
+    row("2  crossbar, 1 out + 1 in", ticks_crossbar(1, 1, 1))
+    row("2  crossbar, 4 out + 4 in", ticks_crossbar(1, 4, 4))
+    row("2  crossbar, 256 out + 256 in", ticks_crossbar(1, 256, 256))
+    print()
+    print(f"  EXACT precision -- {PDM_RATE} ticks per value, where PDM went")
+    print("  bit-identical to fp32 [MEASURED]. This is the like-for-like row.")
+    row("1  one cap", ticks_one_accumulator(PDM_RATE))
+    row("2  crossbar, 1 out + 1 in", ticks_crossbar(PDM_RATE, 1, 1))
+    row("2  crossbar, 4 out + 4 in", ticks_crossbar(PDM_RATE, 4, 4))
+    row("2  crossbar, 256 out + 256 in", ticks_crossbar(PDM_RATE, 256, 256))
+    row("3  substrate, staged", ticks_substrate(flowing=False))
+    row("3  substrate, flowing", ticks_substrate(flowing=True))
 
-    The same laptop runs the software water machine at 23.8 tok/s [MEASURED].
-    So audio as a transport is about {23.8/(best/GPT2_MACS_PER_TOKEN):.0f}x SLOWER than just doing it
-    in software. No encoding fixes this. The ceiling is samples per second,
-    and audio hardware does not have more samples per second.
+    # Compare like for like: every tier at the precision PDM needs to be exact.
+    t1 = ticks_one_accumulator(PDM_RATE)
+    t2 = ticks_crossbar(PDM_RATE, 4, 4)
+    t2big = ticks_crossbar(PDM_RATE, 256, 256)
+    t3 = ticks_substrate()
+    print(f"""
+{'=' * 96}
+  WHAT THE LADDER COSTS, AND WHAT IT BUYS
+{'=' * 96}
 
-    But the CLOCK is not the problem. At 48 kHz, a flowing machine with one
-    wire per weight would turn out {parallel_tokens_per_s(48_000):,.0f} tokens per second, because
-    depth is an addition and the MAC count never enters. The audio tick is
-    already fast enough. What audio does not have is {65_280:,} wires.
+  tier 1 -> tier 2   {t1/t2:>12,.0f}x     one resistor per output neuron instead of one
+                                   resistor, on a 4-in/4-out interface. The wire
+                                   does the fanout; the interface does the rest.
+  tier 2 -> tier 3   {t2/t3:>12,.0f}x     one wire per weight instead of one wire.
+  tier 1 -> tier 3   {t1/t3:>12,.0f}x
 
-    So the cable is not a slow computer. It is a correctly-clocked model of
-    the real machine with the parallelism removed -- which is the cheapest
-    honest way to test whether charge on a wire is linear enough to hold a
-    transformer, at the exact tick rate the microsecond substrate will use.
+  Software reference: the water machine runs GPT-2 at {SOFTWARE_TOK_S} tok/s on the
+  owner's laptop [MEASURED]. All rows below are at PDM-exact precision:
+
+      tier 2, 4 out + 4 in  @ 192 kHz : {192_000/t2:>8,.2f} tok/s
+      tier 2, 256 + 256     @ 48 kHz  : {48_000/t2big:>8,.2f} tok/s
+      tier 2, 256 + 256     @ DSD512  : {22_579_200/t2big:>8,.1f} tok/s
+      tier 3, flowing       @ 48 kHz  : {48_000/t3:>8,.1f} tok/s
+
+  So cycle speed IS everything -- within a tier. Doubling the clock doubles
+  every number above. But a tier is worth more than any clock audio can offer:
+  going from one cap to a crossbar is worth {t1/t2:,.0f}x, and the entire span of audio
+  clock rates, 48 kHz to DSD512, is worth {22_579_200/48_000:.0f}x. Both matter. The tier
+  matters more, and only one of them is a wiring change.
+
+  The catch, stated plainly: tier 2 needs {G['n_out']:,} physical weight elements
+  to hold one token's worth of layers, and they have to be reprogrammable
+  between tiles. Fixed resistors give you one layer, not a model. A
+  programmable conductance that holds its value is exactly the component the
+  handoff already flags as the open problem -- so the ladder is real, and the
+  rung above tier 1 is a hardware build, not a wiring change.
 """)
 
 

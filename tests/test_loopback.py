@@ -166,25 +166,60 @@ def test_budget_arithmetic():
 
 # ----------------------------------------------------------------- the budget
 
-def test_serial_rate_is_samples_over_ticks_per_mac():
+def test_gpt2_constants_are_derived_not_quoted():
+    """n_in must reproduce the 65,280 in WATER_TO_CONVERTER.pdf, or the model
+    of the machine disagrees with the machine."""
     from loopback import budget
-    assert budget.serial_rate(2, 48_000, 8) == pytest.approx(12_000.0)
-    assert budget.serial_rate(1, 48_000, 1) == pytest.approx(48_000.0)
+    g = budget.derive()
+    assert g["n_in"] == 65_280
+    assert g["macs"] == pytest.approx(123.5e6, rel=0.01)
+    assert g["fanout"] == pytest.approx(g["macs"] / g["n_in"])
 
 
-def test_parallel_throughput_ignores_the_mac_count():
+def test_one_accumulator_pays_for_every_mac_separately():
+    from loopback import budget
+    assert budget.ticks_one_accumulator(1) == budget.G["macs"]
+    assert budget.ticks_one_accumulator(8) == 8 * budget.G["macs"]
+
+
+def test_crossbar_recovers_the_fanout():
+    """The whole point of tier 2: the wire performs 1,892 MACs per pulse."""
+    from loopback import budget
+    t1 = budget.ticks_one_accumulator(1)
+    t2 = budget.ticks_crossbar(1, 1, 1)
+    assert t1 / t2 > 900              # at least the fanout, minus readout cost
+
+
+def test_crossbar_is_limited_by_whichever_side_is_slower():
+    from loopback import budget
+    g = budget.G
+    assert budget.ticks_crossbar(1, 1, 10_000) == g["n_in"]      # emit-bound
+    assert budget.ticks_crossbar(1, 10_000, 1) == g["n_out"]     # read-bound
+
+
+def test_substrate_throughput_ignores_both_counts():
     """Depth is an addition when every stage is live, not a multiplication."""
     from loopback import budget
-    flowing = budget.parallel_tokens_per_s(48_000, flowing=True)
-    staged = budget.parallel_tokens_per_s(48_000, flowing=False)
-    assert flowing == pytest.approx(48_000 / (budget.PDM_RATE + budget.GPT2_DEPTH))
-    assert staged == pytest.approx(
-        48_000 / (budget.PDM_RATE * budget.GPT2_LINEAR_STAGES))
-    assert flowing > 40 * staged
+    flowing = budget.ticks_substrate(flowing=True)
+    staged = budget.ticks_substrate(flowing=False)
+    assert flowing == budget.PDM_RATE + budget.GPT2_DEPTH
+    assert staged == budget.PDM_RATE * budget.LINEAR_STAGES
+    assert staged > 40 * flowing
 
 
-def test_serial_is_far_below_the_software_machine():
-    """The headline: audio as a transport loses to the laptop it is plugged into."""
+def test_the_ladder_is_ordered():
+    """Each tier must beat the one below it at equal precision."""
     from loopback import budget
-    best = max(budget.serial_rate(ch, fs, 1) for _, ch, fs in budget.LINKS)
-    assert best / budget.GPT2_MACS_PER_TOKEN < 1.0      # under 1 tok/s, at best
+    R = budget.PDM_RATE
+    t1 = budget.ticks_one_accumulator(R)
+    t2 = budget.ticks_crossbar(R, 4, 4)
+    t3 = budget.ticks_substrate()
+    assert t1 > t2 > t3
+
+
+def test_one_cap_cannot_beat_software_at_any_audio_clock():
+    """Tier 1 is the cable on the desk. It loses to the laptop, always."""
+    from loopback import budget
+    best_clock = max(fs for _, fs in budget.CLOCKS)
+    ticks = budget.ticks_one_accumulator(budget.PDM_RATE)
+    assert best_clock / ticks < budget.SOFTWARE_TOK_S
