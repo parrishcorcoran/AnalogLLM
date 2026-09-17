@@ -16,10 +16,12 @@ that has never been tested outside audio.
      of multiply-accumulate that a digital machine pays for twice
      (NOTES_AND_INTERVALS section 7).
 
-  2. IS A LENGTH A ROTATION.  Split one signal, send one leg through an extra
-     piece of coax, recombine, and measure phase against frequency. The slope
-     gives the cable's actual velocity factor, which turns "5 cm is one notch
-     of a 4096 dial at 977 kHz" from arithmetic into a measured number.
+  2. IS A LENGTH A ROTATION.  Time-of-flight, not a phase sweep -- a DHO804
+     samples at 800 ps, so a 10 m piece with the far end open gives a 100 ns
+     round trip, 125 samples, velocity factor to 0.8%. A 5 cm piece is under
+     one sample and cannot be measured directly. Measure the long one and
+     scale. That turns "5 cm is one notch of a 4096 dial at 977 kHz" from
+     arithmetic off a textbook 0.66 into a number for YOUR cable.
 
 Generate the transmit files here, play them with osmo-fl2k, capture on the
 scope, bring the CSV back:
@@ -30,7 +32,20 @@ scope, bring the CSV back:
     python3 experiments/bench_coax.py step1 capture.csv
 
 The CSV wants one column of samples, or two with time first; a plain scope
-export works.
+export works. `grab` pulls it straight off a DHO800 over LAN instead.
+
+Settings for a DHO804 (70 MHz, 1.25 GSa/s, 25 Mpts, 12 bit, 4 ch):
+
+  step 0  the ramp is 1.67 ms and wants 2.09 Mpts of the 25 available. Each
+          level is held 408 ns against a 5 ns rise time, 82x settled, so the
+          70 MHz does not bite here -- bandwidth only matters on fast edges.
+  step 1  put A on CH1, B on CH2 and the summing node on CH3. The truth then
+          comes off the scope instead of a saved file, which removes the
+          alignment problem entirely.
+  step 2  10 m piece, far end open, single shot on the edge.
+
+The scope is 12 bit, which is the dial exactly. Use :WAV:FORM WORD, not BYTE,
+or you throw away four of them at the last step.
 """
 import sys
 import os
@@ -74,6 +89,43 @@ def gen(outdir):
             np.stack([a[::HOLD], b[::HOLD]]))
     print("wrote to %s/  -- step0 is %d levels x %d samples" % (outdir, LEVELS, HOLD))
     print("step1 truth saved; keep it, step1 needs it")
+
+
+def grab(host, chan=1, points=2_500_000):
+    """Pull a capture off a DHO800 over LAN. Untested here -- no scope."""
+    import socket
+    sk = socket.create_connection((host, 5555), timeout=10)
+
+    def cmd(t, read=False):
+        sk.sendall((t + "\n").encode())
+        if not read:
+            return None
+        buf = b""
+        while not buf.endswith(b"\n"):
+            buf += sk.recv(1 << 20)
+        return buf
+
+    cmd(":STOP")
+    cmd(":WAV:SOUR CHAN%d" % chan)
+    cmd(":WAV:MODE RAW")
+    cmd(":WAV:FORM WORD")                      # 12 bit; BYTE throws away four
+    pre = cmd(":WAV:PRE?", read=True).decode().split(",")
+    yinc, yorig, yref = float(pre[7]), float(pre[8]), float(pre[9])
+
+    out = []
+    step = 250_000
+    for a in range(1, points + 1, step):
+        cmd(":WAV:STAR %d" % a)
+        cmd(":WAV:STOP %d" % min(a + step - 1, points))
+        sk.sendall(b":WAV:DATA?\n")
+        head = sk.recv(2)
+        n = int(sk.recv(int(chr(head[1]))))
+        raw = b""
+        while len(raw) < n:
+            raw += sk.recv(1 << 20)
+        out.append(np.frombuffer(raw[:n], dtype="<u2"))
+    sk.close()
+    return (np.concatenate(out).astype(float) - yorig - yref) * yinc
 
 
 def load(path):
