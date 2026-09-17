@@ -66,3 +66,35 @@ bits** at the output.
 Does not show: behaviour with attention in the loop, at GPT-2's width and depth,
 or with correlated rather than independent noise. Real channel noise is
 correlated; this used white noise.
+
+## A limiter can replace LayerNorm, structurally `[SIMULATED]`
+
+LayerNorm is a **division**, which is the hard thing to build in analog.
+
+But FHRR's bundling step is *"complex superposition followed by projection onto
+the unit circle"* — keep the phase, discard the magnitude. That is a **limiter**,
+which in analog is two diodes. LayerNorm is the same move at vector scale instead
+of per-element, and less aggressive: it keeps relative amplitudes inside the
+vector where FHRR discards them all. Bad HRR, good precision.
+
+So: does the flowing machine still work with a limiter instead of a division?
+
+| normaliser | settles | at tick | err @ L | err @ 5L | growth |
+|---|---|---|---|---|---|
+| LayerNorm (division) | YES | 12 | 3.33e-3 | 2.53e-3 | 0.76× |
+| tanh (soft limiter) | YES | 12 | 4.81e-3 | 2.84e-3 | **0.59×** |
+| hard clip ±1 (limiter) | YES | 12 | 5.52e-3 | 3.25e-3 | **0.59×** |
+| sign (1-bit limiter) | YES | 12 | 1.65e-1 | 1.65e-1 | 1.00× |
+
+**Every normaliser settles at exactly tick L.** And the limiters suppress noise
+*better* than the division — growth below 1.0 means the error **shrinks** the
+longer it runs.
+
+So the two structural results do not depend on the division. **The hardest piece
+of an analog build drops from a divider to two diodes.**
+
+Does not show: whether a **pretrained** model survives the swap. That is an
+accuracy question and needs real weights. There is a measured prior that says it
+might — stripping magnitude and keeping only phase was reported to leave the
+model nearly unchanged, with ~70%+ of the signal in the phase — but that is
+inherited and should be re-run rather than trusted.

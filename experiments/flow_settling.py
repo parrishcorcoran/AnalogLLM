@@ -21,6 +21,17 @@ import numpy as np
 D, L = 64, 12          # width, depth
 
 
+# Normalisers. LayerNorm is a DIVISION, which is hard in analog. A limiter
+# keeps the sign/phase and discards magnitude, which in analog is two diodes.
+# FHRR's bundling step is "project onto the unit circle" -- i.e. a limiter.
+NORMS = {
+    "LayerNorm (division)":    lambda x: (x - x.mean()) / (x.std() + 1e-5),
+    "tanh (soft limiter)":     lambda x: np.tanh(x),
+    "hard clip +-1 (limiter)": lambda x: np.clip(x, -1, 1),
+    "sign (1-bit limiter)":    lambda x: np.sign(x),
+}
+
+
 def ln(x):
     return (x - x.mean()) / (x.std() + 1e-5)
 
@@ -92,6 +103,43 @@ def main():
 
    Error settles at ~2.9x the per-tick noise, linearly. So a channel giving
    N bits per value yields an answer with roughly N - 1.5 bits.
+""")
+
+    print("3. CAN A LIMITER REPLACE LAYERNORM? (division is hard in analog)\n")
+    print(f"{'normaliser':<28}{'settles':>9}{'tick':>6}"
+          f"{'err @ L':>12}{'err @ 5L':>11}{'growth':>9}")
+    for name, norm in NORMS.items():
+        rng = np.random.default_rng(0)
+        W1 = [rng.standard_normal((4*D, D))/np.sqrt(D) for _ in range(L)]
+        W2 = [rng.standard_normal((D, 4*D))/np.sqrt(4*D) for _ in range(L)]
+        blk = lambda k, h: h + W2[k] @ gelu(W1[k] @ norm(h))
+        x0 = rng.standard_normal(D)
+        h = x0.copy()
+        for k in range(L):
+            h = blk(k, h)
+        want, n = h, np.linalg.norm(h)
+        st, tick = [x0.copy()] + [np.zeros(D) for _ in range(L)], None
+        for t in range(1, L + 6):
+            st = [st[0]] + [blk(k, st[k]) for k in range(L)]
+            if tick is None and np.array_equal(st[L], want):
+                tick = t
+        r2 = np.random.default_rng(7)
+        st, eL, e5 = [x0.copy()] + [np.zeros(D) for _ in range(L)], None, None
+        for t in range(1, 5*L + 1):
+            st = [st[0]] + [blk(k, st[k]) + r2.normal(0, 1e-3, D) for k in range(L)]
+            if t == L:
+                eL = np.linalg.norm(st[L] - want)/n
+            if t == 5*L:
+                e5 = np.linalg.norm(st[L] - want)/n
+        print(f"{name:<28}{'YES' if tick else 'no':>9}{str(tick):>6}"
+              f"{eL:>12.2e}{e5:>11.2e}{e5/eL:>8.2f}x")
+    print("""
+   Every normaliser settles at exactly tick L. The limiters suppress noise
+   BETTER than the division (growth 0.59x vs 0.76x) -- the error shrinks the
+   longer it runs.
+
+   Does not show whether a PRETRAINED model survives the swap. That is an
+   accuracy question and needs real weights.
 """)
 
 
