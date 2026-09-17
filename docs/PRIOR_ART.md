@@ -58,6 +58,35 @@ That gap is where this project sits.
 | power | very low — data never moves | higher — data moves on wires |
 | funding | $125M raised | — |
 
+## They do convert pretrained models — but they have to retrain
+
+Worth getting exactly right, because the obvious version of this claim is wrong
+and the real one is stronger.
+
+Mythic's workflow takes trained networks straight out of PyTorch: optimization,
+then compilation. So "they haven't converted a pretrained model" is not true —
+that is their product.
+
+What their own documentation says about the cost of it:
+
+- The simple flow converts fp32 weights and activations to **8-bit integers**,
+  then to an analog 8-bit representation (ANA8), with *"accuracy comparable to
+  digital 8-bit quantization"* — i.e. it carries quantization's accuracy loss.
+- For anything needing better, they provide **retraining flows**:
+  quantization-aware and analog-aware retraining, to build resiliency into
+  layers sensitive to low bit-depth and analog effects.
+- Their framing, not ours: **quantization is a major pain point for customers
+  with high accuracy requirements.**
+
+[Mythic AI Workflow](https://mythic.ai/technology/mythic-ai-workflow/)
+
+So the real difference is not *pretrained*. It is **no retraining and no
+accuracy loss**: a runtime dial whose top rung is the original model, because
+nothing was discarded on the way in. Their pain point is structural to storing a
+weight as a voltage at 8 bits. It is not structural to storing it as a duration.
+
+This is the same point as rule 1 in CLAUDE.md, arrived at from their side.
+
 ## Why time resolution is the cheaper axis
 
 This is the technical crux of the comparison, and it is why 12 bits is
