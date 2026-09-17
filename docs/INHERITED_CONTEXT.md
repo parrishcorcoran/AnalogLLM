@@ -1,8 +1,13 @@
 # Inherited context — the timing-substrate results
 
 Carried over from the `timing-substrate` project so this repo does not have to
-re-derive them. Everything here was measured on real code by the repo owner,
-against GPT-2 (124M) and Qwen2.5-0.5B. **Treat as ground truth.**
+re-derive them.
+
+**Provenance, corrected.** These documents were written by Claude, not by the
+owner. The code ran and produced these numbers, so they are results — but they
+are results to re-check, not ground truth, and the surrounding argument is
+Claude's editorialising. Where a document claims to state the owner's position
+or his hardware, disregard it: at least three such claims have been wrong.
 
 Tags follow the house rule: `[MEASURED]` on hardware or real code, `[DERIVED]`
 by arithmetic, `[CONJECTURE]` untested.

@@ -6,10 +6,15 @@ An **analog GPT-2**: the model run as pulses down a real wire, with the multiply
 and the sum performed by physics rather than by arithmetic. The wire, for now, is
 an audio cable from the laptop's output back into its input.
 
-This repo is the analog track of the timing-substrate work. That project proved a
-pretrained transformer can be run as durations on a clock, in software, with the
-top of the dial bit-exact against fp32. See `docs/INHERITED_CONTEXT.md` — those
-results are **ground truth**. Your job is to build on them, not re-derive them.
+This repo is the analog track of the timing-substrate work.
+
+**On the inherited documents — read this carefully.** The prose in
+`timing-substrate/specs/` and `docs/INHERITED_CONTEXT.md` was written by Claude,
+not by the owner. The CODE ran and the numbers came out of it, so treat the
+numbers as results to re-check. But the framings, the conclusions, the tone
+notes and the claims about what the owner thinks are Claude's, and several were
+wrong. Do NOT quote those documents back to the owner as his own position.
+Ask him.
 
 ## Rules — these matter
 
@@ -60,9 +65,16 @@ Those two numbers decide the whole design.
 
 ## Target hardware
 
-A MacBook, its built-in codec, and ~$2 of passives. Built-in audio is typically
-44.1/48 kHz — do not assume 192 kHz without checking; the rig reports what the
-device actually accepted.
+**An array of modems plus FPGA modules.** Many independent analog channels in
+parallel, clocked and orchestrated by the FPGAs. Channel count is the point —
+it is the answer to the parallelism limit, not a workaround for it.
+
+The owner's computer is an HP. There is no EPYC server, no Strix Halo and no
+MacBook — earlier documents asserted all three and were wrong. Do not assume
+hardware. Ask.
+
+The audio-jack loopback in `loopback/` is a single-channel bench instrument for
+checking whether charge on a wire stays linear. It is not the target.
 
 ## Tone
 
