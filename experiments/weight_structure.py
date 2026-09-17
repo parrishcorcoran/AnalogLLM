@@ -63,7 +63,7 @@ def squares(W):
         return [W]
     if a > b:
         W, a, b = W.T, b, a
-    return [W[:, i * a:(i + 1) * a] for i in range(b // a)] if b % a == 0 else []
+    return [W[:, i * a:(i + 1) * a] for i in range(b // a)]      # drop remainder
 
 
 def diag_constancy(W):
@@ -154,6 +154,8 @@ def intrinsic(W, rng):
     dup% is the number that says whether the dimension is real. Three separated
     clusters -- e.g. gpt2's fused Q/K/V -- barely move it (157 -> 145)."""
     W = np.asarray(W, np.float64)
+    if len(W) > 4000:                       # n x n distances; cap the cost
+        W = W[rng.choice(len(W), 4000, replace=False)]
     n, dim = W.shape
     raw = twonn(W)
     reads, truth = calibrate(n, dim, rng)
@@ -229,7 +231,8 @@ def main():
     d = model.config.hidden_size
     controls(d, np.random.default_rng(0))
 
-    print("%s -- %d blocks, width %d\n" % (name, len(blocks), d))
+    print("%s -- %d blocks, width %d, doing %d\n" % (
+        name, len(blocks), d, min(limit, len(blocks))))
     got = defaultdict(list)
     with torch.no_grad():
         for n, blk in enumerate(blocks[:limit]):
@@ -254,9 +257,10 @@ def main():
     rng = np.random.default_rng(0)
     print("\n%-26s %-10s %-12s %-8s %s" % (
         "", "TwoNN", "de-biased", "of dim", "dup%"))
+    used = min(limit, len(blocks))
     with torch.no_grad():
         for n, blk in enumerate(blocks[:limit]):
-            if n not in (0, len(blocks) // 2, min(limit, len(blocks)) - 1):
+            if n not in (0, used // 2, used - 1):
                 continue
             for pname, p in blk.named_parameters():
                 if p.ndim != 2:
@@ -270,10 +274,12 @@ def main():
                     raw, deb, "%.0f%% of %d" % (100 * deb / W.shape[1], W.shape[1]), dup))
     print("\ndup%% above a few percent means the dimension reading is void, not low.")
 
-    print("\nread generators FIRST, then rank and non-normal")
-    print("(read rank and non-normal FIRST -- they are basis-independent.")
-    print("conv-energy and shifts are measured in an arbitrary basis, so a high")
-    print("value is strong evidence and a low value proves nothing.")
+    print("\nread GENERATORS first: r delays plus r x d volumes builds the")
+    print("projection, and the other columns cannot see it -- a matrix made of")
+    print("two generators comes out full rank.")
+    print("rank and non-normal are basis-independent, so trust them as stated.")
+    print("conv-energy and shifts are read in whatever order training left the")
+    print("dimensions in, so a high value is strong and a low value is soft.")
     return 0
 
 
