@@ -27,7 +27,7 @@ Generate the transmit files here, play them with osmo-fl2k, capture on the
 scope, bring the CSV back:
 
     python3 experiments/bench_coax.py gen  out/
-    fl2k_file -s 157e6 -d 0 out/step0_msb.u8 -c out/step0_lsb.u8
+    fl2k_file -s 100e6 -d 0 out/step0_msb.u8 -c out/step0_lsb.u8
     python3 experiments/bench_coax.py step0 capture.csv
     python3 experiments/bench_coax.py step1 capture.csv
 

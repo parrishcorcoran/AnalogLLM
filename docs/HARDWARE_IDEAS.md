@@ -38,7 +38,15 @@ From Osmocom, the same people behind RTL-SDR. **$5 USB 3.0→VGA adapters** buil
 the Fresco Logic FL2000 chip, driven as general-purpose DACs.
 
 - **3 independent 8-bit channels** (R, G, B)
-- **up to 157 MS/s** → **471 M values/s for $5**
+- **157 MS/s is the chip ceiling; ~84-100 MS/s is what people actually get**
+  → **250-300 M values/s for $5**, so 50-60 M values/s per dollar
+- **buy the cheap one.** $5-15 adapters advertised "USB 3.0 to VGA, 1920x1080"
+  are FL2000. Expensive ones are DisplayLink and will not work at all. Brand
+  is irrelevant, price is the tell. Needs a real USB 3.0 port; some units have
+  the USB wired wrong and cap at USB-2 rates.
+- **output only.** It cannot receive. The receive side here is the DHO804:
+  12 bit, 1.25 GS/s, 25 Mpts -- better than an RTL-SDR (8 bit, 2.4 MS/s) or a
+  HackRF (8 bit, 20 MS/s), and already owned.
 - open source, working code: [osmocom/osmo-fl2k](https://github.com/osmocom/osmo-fl2k)
 - [FL2K_2 fork](https://github.com/BM45/fl2k_2_rgb) drives all three channels;
   the original uses only red
@@ -87,9 +95,9 @@ Break out to separate BNC coax (VGA→3×BNC, ~$12) when you want to **put
 something in a channel**: an attenuator, a tap, a filter, a splitter — or
 different lengths per channel.
 
-- **Termination matters.** At 157 MS/s the cable is electrically long. VGA gear
+- **Termination matters.** At ~100 MS/s the cable is electrically long. VGA gear
   is 75 Ω throughout and terminates correctly on its own.
 - **BNC comes in 50 Ω and 75 Ω and they look identical.** Video is 75 Ω. Mixing
   them causes reflections that will look like noise you cannot explain.
-- **Delay:** at 157 MS/s, **~1.27 m of coax = one sample of delay** (velocity
+- **Delay:** at ~100 MS/s, **~2 m of coax = one sample of delay** (velocity
   factor 0.66). That is the conversion if cable length is ever used as timing.
