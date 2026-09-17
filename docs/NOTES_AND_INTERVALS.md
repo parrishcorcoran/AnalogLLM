@@ -203,14 +203,21 @@ Marchenko-Pastur fit lands at 800-920 superposed terms, **above** the 768
 dimensions: overcomplete superposition, more bound pairs stored than there are
 dimensions to store them in. That is the HRR capacity regime.
 
-So a projection is not a handful of physical objects. The weights are packed
-past full and do not collapse. **Streaming is the architecture**, and the floor
-for a single stream is $1,882/tok/s (KIMI_UNITS), with better emitters — not
-stationary weights — the place where cost comes out.
+**That second number does not answer the generator question**, and it was
+recorded here as if it did. Participation ratio, spectral entropy and rank at
+90% are all functions of the singular values — which is why all three land in
+the same band; they are one measurement. And the controls in
+`experiments/weight_structure.py` show exactly that measurement is blind here:
+a matrix built from ten mask-and-delay pairs reads **rank 94 of 192, generators
+9**, and a pure convolution is full rank. So 220-410 cannot tell 4 generators
+from 768.
 
-The two measurements above answer different questions and should not be
-multiplied together; the first is inter-block kernel redundancy, the second is
-superposed rank-1 terms in one matrix.
+What it does establish is real and worth keeping: one matrix is a dense
+superposition of rank-1 terms, overcomplete, at HRR capacity.
+
+**Still unknown:** the mask-and-delay generator count for a single matrix,
+`rank(M)` where `M[k,i] = W[i, (i-k) % d]`. Which route is buildable —
+streaming at $1,882/tok/s, or stationary weights — still turns on it.
 
 (superseded) **Three.** Twelve station kernels, two generators cover 90%, three
 cover 99.2%, four are exact. Stations 5 through 8 are nearly the same kernel
