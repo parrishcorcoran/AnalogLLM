@@ -60,7 +60,41 @@ set forever unless you train — which is the requirement the weights already ha
 Go high enough and it comes all the way around and starts over. The wrap is the
 mod, done by the medium, with no counter anywhere.
 
-## 4. A weight is an interval
+## 4. The weight has to be a delay
+
+A tapped line is a convolution -- signal round a loop, each tap delaying and
+scaling, all summed at a node. That is textbook FIR. What is worth writing down
+is that it equals HRR binding exactly, and that reading it backwards is
+unbinding on the same hardware, with one condition. **[measured]**
+
+| taps | forward then backward recovers the input |
+|---|---|
+| random | fails, error 2.5 |
+| all-pass (unit spectrum) | exact, 5.7e-15 |
+| **a plain delay** | **exact, 0.00** |
+
+Only an all-pass tap pattern inverts. A pure delay is the simplest all-pass
+thing there is. So a weight being a delay is a **requirement**, not a
+convenient choice — and an attenuator on a tap is lossy, therefore not
+all-pass, therefore breaks the invertibility that makes unbinding free. Earlier
+drafts here put a mask on every tap; that was the wrong part.
+
+Scope: all-pass matters where the signal must be read *back*, which is
+attention's retrieval. An MLP is never inverted in a forward pass and does not
+carry the same constraint. **[open]** how far the requirement reaches.
+
+Separately, unbinding is exact only at unit magnitude: **[measured]**
+
+| | unbind recovers the input |
+|---|---|
+| gaussian HRR (Plate 1995) | 0.710 |
+| FHRR, unit magnitude, 4096 phases | 1.000, phase error 1.8e-16 |
+
+Magnitude 1 is not a simplification of the representation. It is what makes
+unbinding lossless. "The lap matters, but not very much" and "unbinding is
+exact" are the same statement.
+
+## 5. A weight is an interval
 
 A weight needs two addresses: it is the weight *from* note j *to* note i. A pitch
 only has one. The second address comes from the pair — the interval between two
@@ -84,7 +118,7 @@ If the notes are evenly spaced this breaks — 768 evenly spaced notes give only
 The notes have to be spaced so no two pairs sit the same distance apart. That
 costs span, not precision: ~295,000 notches instead of 768. **[arithmetic]**
 
-## 5. Tension and resolution
+## 6. Tension and resolution
 
 Not metaphor. Tension in music is beating — two things close but not equal,
 wobbling at their difference, a real envelope you can put a meter on. Resolution
@@ -103,7 +137,7 @@ same tied matrix used in both directions: word to chord, chord back to word.
 fork rings. If the forks are physically present and the chord is physically
 played, the loudest one is loudest. There is no argmax to perform.
 
-## 6. The net is already doing superposition
+## 7. The net is already doing superposition
 
 The residual stream carries far more features than it has dimensions, by putting
 them in nearly-orthogonal directions and tolerating the overlap. The published
@@ -126,7 +160,7 @@ the deal. The crosstalk is bought, not suffered.
 interference level. Noise the medium adds *underneath* that level is invisible —
 not acceptable, invisible. Only noise that pokes above it costs anything.
 
-## 7. Why this does not speed up a normal computer
+## 8. Why this does not speed up a normal computer
 
 It is worth writing down why the same trick does not just make PyTorch faster.
 
@@ -152,7 +186,7 @@ So the claim is not "adds instead of multiplies." It is that **the weight never
 travels**. A station is not fetched. The 640 pJ is not reduced, it is never
 incurred, because there is nothing to move.
 
-## 8. Tuning, and what it costs
+## 9. Tuning, and what it costs
 
 A resonator does not read. It responds. And a bank of them responds *at once* —
 4096 tuned things on one wire all ring simultaneously from the same passing
@@ -174,7 +208,7 @@ The price is selectivity: you must listen long enough to tell neighbours apart.
 At 10 GHz the loop that spaces the comb correctly is **2 cm** long. Holding
 notes in frequency rather than strung out in space makes the medium small.
 
-## 9. What the whole model costs, in these units
+## 10. What the whole model costs, in these units
 
 **[arithmetic]** GPT-2 small, standard, no trades:
 
@@ -188,7 +222,7 @@ notes in frequency rather than strung out in space makes the medium small.
 Early exit and early start are deliberately **not** used. They buy speed with
 accuracy, which is the same trade as quantizing. Standard model first.
 
-## 10. Open
+## 11. Open
 
 **Answered, and it is two numbers that do not compose.** **[owner]**
 
